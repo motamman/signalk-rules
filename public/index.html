@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Signal K Rules</title>
+    <style>
+      :root {
+        --bg: #f4f6f8; --panel: #fff; --border: #d9dee3; --ink: #1f2a33;
+        --muted: #6b7884; --accent: #1565c0; --accent-ink: #fff;
+        --ok: #2e7d32; --fail: #c62828; --warn: #9a5b00; --chip: #eef2f6;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+      header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+      header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+      header .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+      main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+      button { font: inherit; cursor: pointer; border: 1px solid var(--border); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 12px; }
+      button:hover { background: #f0f3f6; }
+      button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+      button.primary:hover { filter: brightness(1.07); }
+      button.danger { color: var(--fail); border-color: #e7b7b7; }
+      button.small { padding: 4px 9px; font-size: 12px; }
+      table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+      th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+      th { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); background: #fafbfc; }
+      tr:last-child td { border-bottom: none; }
+      .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--chip); font-size: 12px; color: var(--muted); }
+      .chip.cond { background: #e8f0fe; color: #1554a8; }
+      .chip.sched { background: #fff1e0; color: #9a5b00; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+      .muted { color: var(--muted); }
+      .ok { color: var(--ok); } .fail { color: var(--fail); }
+      .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+      .switch { position: relative; display: inline-block; width: 38px; height: 22px; }
+      .switch input { display: none; }
+      .slider { position: absolute; inset: 0; background: #c7ced4; border-radius: 999px; transition: .15s; }
+      .slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .15s; }
+      .switch input:checked + .slider { background: var(--accent); }
+      .switch input:checked + .slider::before { transform: translateX(16px); }
+      .empty { text-align: center; padding: 48px; color: var(--muted); }
+      .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #263238; color: #fff; padding: 10px 16px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 80vw; }
+      .toast.show { opacity: 1; } .toast.err { background: var(--fail); }
+
+      .backdrop { position: fixed; inset: 0; background: rgba(20,28,35,.5); display: none; align-items: flex-start; justify-content: center; padding: 30px 16px; overflow: auto; }
+      .backdrop.show { display: flex; }
+      .modal { background: var(--panel); border-radius: 10px; width: 680px; max-width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+      .modal h2 { margin: 0; padding: 16px 20px; font-size: 16px; border-bottom: 1px solid var(--border); }
+      .modal .body { padding: 16px 20px; }
+      .modal .footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 8px; }
+      label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 4px; }
+      input[type=text], input[type=number], select, textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; font: inherit; background: #fff; color: var(--ink); }
+      textarea { resize: vertical; min-height: 40px; }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 14px 0; }
+      legend { font-size: 12px; font-weight: 700; color: var(--ink); padding: 0 6px; }
+      .sub-rows > div { margin-bottom: 8px; }
+      .days { display: flex; gap: 6px; flex-wrap: wrap; }
+      .days label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: 500; cursor: pointer; }
+      .inline-add { margin-top: 6px; }
+      .hidden { display: none !important; }
+      .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+      .intro { background: #eef4fb; border: 1px solid #d3e3f5; color: #244; padding: 9px 11px; border-radius: 7px; margin: 0 0 6px; font-size: 13px; }
+
+      /* condition test row: path | operator | value | x */
+      .test-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto; gap: 6px; align-items: start; }
+      .test-row .nowval { grid-column: 1 / -1; font-size: 11px; color: var(--muted); margin-top: -2px; }
+      .vbox { display: flex; gap: 6px; }
+      .eval-box { margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 7px; background: #fafbfc; }
+      .verdict { font-weight: 700; font-size: 15px; }
+      .verdict.t { color: var(--ok); } .verdict.f { color: var(--warn); } .verdict.e { color: var(--fail); }
+      .eval-facts { margin-top: 6px; font-size: 12px; }
+      .action-row { border-top: 1px dashed var(--border); padding-top: 8px; }
+      .action-row:first-child { border-top: none; padding-top: 0; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Rules</h1>
+        <div class="sub">IF a path condition is met · WHEN a schedule fires · THEN run actions</div>
+      </div>
+      <button class="primary" id="addBtn">+ Add rule</button>
+    </header>
+
+    <main>
+      <table id="rulesTable">
+        <thead>
+          <tr>
+            <th style="width:48px">On</th>
+            <th>Name</th>
+            <th>When</th>
+            <th>Then</th>
+            <th>Last fired</th>
+            <th style="width:210px"></th>
+          </tr>
+        </thead>
+        <tbody id="rulesBody"></tbody>
+      </table>
+      <div id="emptyState" class="empty hidden">No rules yet. Click <strong>Add rule</strong> to create one.</div>
+    </main>
+
+    <div class="backdrop" id="backdrop">
+      <div class="modal">
+        <h2 id="modalTitle">Add rule</h2>
+        <div class="body">
+          <p class="intro">A rule runs its <strong>actions</strong> when its <strong>trigger</strong> happens — a path condition becoming true, or a scheduled time.</p>
+          <input type="hidden" id="f-id" />
+          <div class="grid2">
+            <div><label>Name</label><input type="text" id="f-name" placeholder="e.g. Shallow water alarm" /></div>
+            <div><label>Don't re-fire within (ms)</label><input type="number" id="f-debounce" min="0" placeholder="0" /></div>
+          </div>
+
+          <fieldset>
+            <legend>When (trigger)</legend>
+            <label>Trigger type</label>
+            <select id="f-trigger-kind">
+              <option value="condition">Condition — when path values meet a test</option>
+              <option value="schedule">Schedule — at a time or sun event</option>
+            </select>
+
+            <div id="cond-fields">
+              <label>Match</label>
+              <select id="f-match">
+                <option value="all">ALL of these tests (AND)</option>
+                <option value="any">ANY of these tests (OR)</option>
+              </select>
+              <label>Tests</label>
+              <div id="testsList" class="sub-rows"></div>
+              <div>
+                <button class="small inline-add" id="addTestBtn" type="button">+ test</button>
+                <button class="small" id="checkBtn" type="button" style="margin-left:8px">Check against live data</button>
+              </div>
+              <div id="checkResult" class="eval-box hidden"></div>
+              <label>Fire when</label>
+              <select id="f-edge">
+                <option value="rising">the condition becomes true</option>
+                <option value="falling">the condition becomes false</option>
+                <option value="always">on every update while true</option>
+              </select>
+            </div>
+
+            <div id="sched-fields" class="hidden">
+              <label>Schedule</label>
+              <select id="f-schedule">
+                <option value="clock">Clock — at a fixed time</option>
+                <option value="sunrise">Sunrise (+/- offset)</option>
+                <option value="sunset">Sunset (+/- offset)</option>
+              </select>
+              <div id="clock-fields" class="grid2">
+                <div><label>Time (HH:MM, 24h)</label><input type="text" id="f-time" placeholder="07:30" /></div>
+                <div><label>Days</label><div class="days" id="daysList"></div></div>
+              </div>
+              <div id="sun-fields" class="hidden">
+                <label>Offset (minutes, negative = before)</label>
+                <input type="number" id="f-offset" placeholder="0" />
+                <div class="hint">Needs <span class="mono">navigation.position</span> for sun times.</div>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Then (actions — run in order)</legend>
+            <div id="actionsList" class="sub-rows"></div>
+            <button class="small inline-add" id="addActionBtn" type="button">+ action</button>
+          </fieldset>
+        </div>
+        <div class="footer">
+          <button class="danger" id="deleteBtn" type="button">Delete</button>
+          <div style="display:flex; gap:8px">
+            <button id="cancelBtn" type="button">Cancel</button>
+            <button class="primary" id="saveBtn" type="button">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <datalist id="pathOptions"></datalist>
+
+    <script src="js/app.js"></script>
+  </body>
+</html>
