@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Engine } from 'json-rules-engine';
 
-/** Minimal shape of a node-cron scheduled task. */
+/** Minimal shape of a stoppable scheduled task (croner Cron or a timer). */
 export interface StoppableTask {
   stop(): void;
 }

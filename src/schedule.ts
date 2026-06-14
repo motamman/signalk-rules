@@ -1,4 +1,4 @@
-import * as cron from 'node-cron';
+import { Cron } from 'croner';
 import * as SunCalc from 'suncalc';
 import { ServerAPI } from '@signalk/server-api';
 import { ArmedRule, ScheduleTrigger } from './types';
@@ -45,15 +45,17 @@ function armClock(
   const dow =
     trigger.days && trigger.days.length > 0 ? trigger.days.join(',') : '*';
   const expr = `${minute} ${hour} * * ${dow}`;
-  if (!cron.validate(expr)) {
-    app.error(`[rule:${armed.def.name}] invalid cron expression '${expr}'`);
-    return;
+  try {
+    // croner validates the pattern in the constructor (throws if invalid) and
+    // starts the job immediately. The returned Cron has .stop() (StoppableTask).
+    const task = new Cron(expr, () => {
+      void maybeFire(armed, app, pluginId, 'schedule');
+    });
+    armed.cronTasks.push(task);
+    app.debug(`[rule:${armed.def.name}] scheduled clock '${expr}'`);
+  } catch (e) {
+    app.error(`[rule:${armed.def.name}] invalid cron expression '${expr}': ${e}`);
   }
-  const task = cron.schedule(expr, () => {
-    void maybeFire(armed, app, pluginId, 'schedule');
-  });
-  armed.cronTasks.push(task);
-  app.debug(`[rule:${armed.def.name}] scheduled clock '${expr}'`);
 }
 
 function armSunEvent(
@@ -65,7 +67,7 @@ function armSunEvent(
   // Schedule today's event now, then recompute daily (position and the event
   // time both drift, so we recompute rather than assume a fixed offset).
   scheduleNextSun(armed, app, pluginId, trigger);
-  const daily = cron.schedule(DAILY_RECOMPUTE_CRON, () => {
+  const daily = new Cron(DAILY_RECOMPUTE_CRON, () => {
     scheduleNextSun(armed, app, pluginId, trigger);
   });
   armed.cronTasks.push(daily);
