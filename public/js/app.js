@@ -515,7 +515,14 @@ document.addEventListener('click', async (ev) => {
   const t = ev.target;
   if (t.dataset.edit) openModal(rulesById(t.dataset.edit));
   else if (t.dataset.run) {
+    const rule = rulesById(t.dataset.run);
     try {
+      // Respect the condition: for a condition rule, only fire if it's true now.
+      if (rule && rule.trigger && rule.trigger.kind === 'condition') {
+        const ev2 = await api('POST', '/evaluate', { conditions: rule.trigger.conditions });
+        if (ev2.error) return toast('Condition error: ' + ev2.error, true);
+        if (!ev2.result) return toast('Condition is false right now — actions not run');
+      }
       const r = await api('POST', '/rules/' + encodeURIComponent(t.dataset.run) + '/test');
       const failed = (r.actionResults || []).filter((a) => !a.ok);
       if (r.ok) toast('Ran ' + r.actionResults.length + ' action(s) ok');
