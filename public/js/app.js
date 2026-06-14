@@ -290,6 +290,11 @@ function actionRow(a) {
         </select>
         <input type="text" class="a-message" placeholder="message" value="${esc(a.message || '')}" />
       </div>
+      <div style="margin-top:6px; display:flex; gap:14px; align-items:center;">
+        <span class="muted" style="font-size:12px">Notify by:</span>
+        <label style="display:inline-flex;gap:4px;align-items:center;font-weight:500;margin:0;"><input type="checkbox" class="a-method" value="visual" ${!a.methods || a.methods.includes('visual') ? 'checked' : ''}/> visual</label>
+        <label style="display:inline-flex;gap:4px;align-items:center;font-weight:500;margin:0;"><input type="checkbox" class="a-method" value="sound" ${a.methods && a.methods.includes('sound') ? 'checked' : ''}/> sound</label>
+      </div>
     </div>`;
 
   const typeSel = div.querySelector('.a-type');
@@ -353,7 +358,14 @@ function collectAction(div) {
     else value = div.querySelector('.a-value').value;
     return { type, path, value };
   }
-  return { type, path, state: div.querySelector('.a-state').value, message: div.querySelector('.a-message').value.trim() };
+  const methods = [...div.querySelectorAll('.a-method:checked')].map((c) => c.value);
+  return {
+    type,
+    path,
+    state: div.querySelector('.a-state').value,
+    message: div.querySelector('.a-message').value.trim(),
+    methods: methods.length ? methods : ['visual'],
+  };
 }
 
 // ---- trigger visibility ---------------------------------------------------
